@@ -4,7 +4,7 @@
 -export([leaves/1, sizes/2, low/1, high/1, rough_split/1]).
 -export([union/2, intersection/2, difference/2]).
 
--export([test/0, test1/0, test2/0]).
+-export([test/0, test1/0]).
 
 -record(node, {ht, low, left, right, high}).
 -record(leaf, {low, high}).
@@ -200,11 +200,15 @@ test1() ->
 
     X1234 = union(range(1, 2), range(3, 4)),
     X3456 = union(range(3, 4), range(5, 6)),
-    {node,1,{leaf,1,2},{node,3,{leaf,3,4},{leaf,5,6},6},6} = union(X1234, X3456),
+    {node,3,1,{leaf,1,2},{node,2,3,{leaf,3,4},{leaf,5,6},6},6} = union(X1234, X3456),
+    {{leaf,1,2},{node,2,3,{leaf,3,4},{leaf,5,6},6}} = rough_split(union(X1234, X3456)),
+    [{1,2},{3,4},{5,6}] = leaves(union(X1234, X3456)),
+    [{1,2}] = leaves(range(1,2)),
+    [] = leaves(empty),
 
     false = is_empty(X1234),
 
-    {node,1, {leaf,1,10}, {node,15,{leaf,15,30},{leaf,40,50},50}, 50} =
+    {node,3,1, {leaf,1,10}, {node,2,15,{leaf,15,30},{leaf,40,50},50}, 50} =
         union(union(range(1, 10), range(15, 25)),
               union(range(20, 30), range(40, 50))),
 
@@ -253,17 +257,32 @@ test1() ->
     empty = difference(X1458, X1458),
     {leaf, 1, 2} = difference(range(1, 3), range(2, 3)),
 
-    {node, -15, {node,-15,{leaf,-15,1},{leaf,4,5},5},
-                {leaf,8,10}, 10} = difference(range(-15, 10), X1458),
+    Deepish
+        = {node,3,-15, {node,2,-15,{leaf,-15,1},{leaf,4,5},5}, {leaf,8,10}, 10}
+        = difference(range(-15, 10), X1458),
+    [{depth, 3}, {present, 19}, {ngaps, 2}, {absent, 6}]
+        = sizes(Deepish, fun (B, A) -> B - A end),
+    [{depth, 0}, {present, 0}, {ngaps, 0}, {absent, 0}]
+        = sizes(empty, fun (B, A) -> B - A end),
 
-    {node,1,{leaf,1,3},{leaf,6,8},8} = difference(X1458, range(3, 6)),
+    ok = testBalancing(),
+
+    0 = ht(empty),
+    1 = ht(range(1,2)),
+
+    {node,2,1,{leaf,1,3},{leaf,6,8},8} = difference(X1458, range(3, 6)),
     ok.
 
-test2() ->
-    F = fun (V) -> intervals:range(V, V+1) end,
-    lists:foldl(fun union/2, empty(), [F(1), F(2), F(3),
-                                       F(5), F(6),
-                                       F(8), F(9), F(10),
-                                       F(12), F(13), F(14),
-                                       F(16), F(17),
-                                       F(19), F(20)]).
+testBalancing() ->
+    %% Particular arrangement of steps to force coverage of all the branches.
+    %% Hmm how do I get coverage of the zigzig (single) rotations?
+    LR = union(range(3,4), range(5,6)),
+    L = union(range(1,2), LR),
+    R = range(7,8),
+    X = union(L,R),
+    Y = union(range(10,11), range(12,13)),
+    UX = n(n(range(1,2), range(3,4)), n(n(range(5,6), range(7,8)), n(range(10,11), range(12,13)))),
+    UX = union(X, Y),
+    UV = n(n(range(-4,-3),n(range(-2,-1),range(1,2))), n(range(3,4),n(range(5,6),range(7,8)))),
+    UV = union(union(range(-4,-3), range(-2,-1)), X),
+    ok.
