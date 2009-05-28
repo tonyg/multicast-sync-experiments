@@ -30,6 +30,6 @@ send_all(Socket, Term) ->
     send(Socket, ?COPYINOUT_MULTICAST_ADDR, 5672, Term).
 
 dump_set(What, Set) ->
-    {Depth, In, Out} = intervals:sizes(Set, fun({_, H}, {_, L}) -> H - L end),
-    io:format("~s set has ~p in, ~p missing, depth ~p; next unseen is ~p~n",
-              [What, In, Out, Depth, case Set of empty -> unknown; _ -> intervals:high(Set) end]).
+    Sizes = intervals:sizes(Set, fun({_, H}, {_, L}) -> H - L end),
+    io:format("~s set has sizes ~p; next unseen is ~p~n",
+              [What, Sizes, case Set of empty -> unknown; _ -> intervals:high(Set) end]).

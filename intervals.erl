@@ -55,14 +55,21 @@ leaves1(#leaf{low = L, high = H}) ->
 leaves1(#node{left = L, right = R}) ->
     [leaves1(L) | leaves1(R)].
 
-sizes(empty, _F) ->
-    {0, 0, 0};
-sizes(#leaf{low = L, high = H}, F) ->
-    {1, F(H, L), 0};
-sizes(#node{left = L, right = R}, F) ->
-    {LD, LP, LM} = sizes(L, F),
-    {RD, RP, RM} = sizes(R, F),
-    {max(LD, RD) + 1, LP + RP, LM + RM + F(low(R), high(L))}.
+sizes(T, F) ->
+    {Depth, Present, NGaps, Absent} = sizes1(T, F),
+    [{depth, Depth},
+     {present, Present},
+     {ngaps, NGaps},
+     {absent, Absent}].
+
+sizes1(empty, _F) ->
+    {0, 0, 0, 0};
+sizes1(#leaf{low = L, high = H}, F) ->
+    {1, F(H, L), 0, 0};
+sizes1(#node{left = L, right = R}, F) ->
+    {LD, LP, LG, LM} = sizes1(L, F),
+    {RD, RP, RG, RM} = sizes1(R, F),
+    {max(LD, RD) + 1, LP + RP, LG + RG + 1, LM + RM + F(low(R), high(L))}.
 
 min(A, B) when A < B -> A;
 min(_A, B) -> B.
