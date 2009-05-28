@@ -1,0 +1,31 @@
+Make copyout proactively ask for resends when it detects a gap
+
+Make copyout preserve order
+
+Make copyack send to requestor privately first, then to all if a
+second requestor comes in before the next index announcement
+
+
+
+copyack:start_link().
+
+copyout:start_link().
+
+{ok, P} = copyin:start_link(abc).
+copyin:publish(P, now()).
+lists:foreach(fun (_) -> copyin:publish(P, now()) end, lists:seq(1, 1000)).
+lists:foreach(fun (_) -> copyin:publish(P, now()) end, lists:seq(1, 2000)).
+lists:foreach(fun (_) -> copyin:publish(P, now()) end, lists:seq(1, 10000)).
+lists:foreach(fun (_) -> copyin:publish(P, now()) end, lists:seq(1, 100000)).
+
+{ok, P} = copyin:start_link(abc).
+lists:foreach(fun (_) -> copyin:publish(P, now()) end, lists:seq(1, 1000)).
+
+{ok, P} = copyin:start_link(abc).
+lists:foreach(fun (_) -> copyin:publish(P, now()) end, lists:seq(1, 10000)).
+
+{ok, P} = copyin:start_link(abc).
+lists:foreach(fun (_) -> copyin:publish(P, now()) end, lists:seq(1, 100000)).
+
+{ok, P} = copyin:start_link(abc).
+lists:foreach(fun (_) -> copyin:publish(P, now()) end, lists:seq(1, 1000000)).
