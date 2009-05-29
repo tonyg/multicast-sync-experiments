@@ -5,6 +5,10 @@ Make copyout preserve order
 Make copyack send to requestor privately first, then to all if a
 second requestor comes in before the next index announcement
 
+If copyack starts after copyin has offered everything, and copyin has
+no RTT estimate, copyin will never retransmit. Need to think up a
+better strategy for retransmissions.
+
 
 
 copyack:start_link().
