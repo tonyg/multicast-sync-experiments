@@ -103,7 +103,7 @@ noreply1(StartTime,
 
 init([Name]) ->
     {ok, Socket} = gen_udp:open(0, [binary,
-                                    {recbuf, 65536},
+                                    {recbuf, 65536}, {sndbuf, 65536},
                                     {active, true}]),
     {ok, #state{rtt_samples = [],
                 rtt_sample_count = 0,

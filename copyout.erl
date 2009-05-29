@@ -66,7 +66,7 @@ handle_packet(_SenderIp, _SenderPort, {publish, MsgId, Msg},
 
 init([]) ->
     {ok, Socket} = gen_udp:open(5672, [binary,
-                                       {recbuf, 65536},
+                                       {recbuf, 65536}, {sndbuf, 65536},
                                        {add_membership, {?COPYINOUT_MULTICAST_ADDR, {0,0,0,0}}},
                                        {multicast_loop, true},
                                        {active, true}]),
