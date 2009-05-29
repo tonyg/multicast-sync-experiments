@@ -32,7 +32,12 @@ handle_packet(_SenderIp, _SenderPort, {seen1, MsgId},
         {ok, {SentTime, _Msg}} ->
             Now = now(),
             Sample = timer:now_diff(Now, SentTime) div 1000,
-            update_rtt(Sample, State#state{outstanding = dict:erase(MsgId, OldOutstanding),
+            NewOutstanding = dict:erase(MsgId, OldOutstanding),
+            case dict:size(NewOutstanding) of
+                0 -> io:format("No more outstanding~n");
+                _ -> ok
+            end,
+            update_rtt(Sample, State#state{outstanding = NewOutstanding,
                                            timers = gb_trees:delete_any(SentTime, OldTimers)})
     end.
 
@@ -46,7 +51,7 @@ update_rtt(Sample, State = #state{rtt_samples = Samples,
                          N when N < ?MIN_RTT -> ?MIN_RTT;
                          N -> N
                      end,
-            io:format("Rtt ~p~n", [NewRtt]),
+            io:format("Rtt ~p; ~p outstanding~n", [NewRtt, dict:size(State#state.outstanding)]),
             State#state{rtt_samples = [],
                         rtt_sample_count = 0,
                         rtt = NewRtt};

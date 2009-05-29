@@ -31,5 +31,5 @@ send_all(Socket, Term) ->
 
 dump_set(What, Set) ->
     Sizes = intervals:sizes(Set, fun({_, H}, {_, L}) -> H - L end),
-    io:format("~s set has sizes ~p; next unseen is ~p~n",
+    io:format("~s set has sizes ~p.~nNext unseen is ~p~n",
               [What, Sizes, case Set of empty -> unknown; _ -> intervals:high(Set) end]).
