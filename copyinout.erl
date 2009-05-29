@@ -8,7 +8,7 @@ single_message_interval({Name, Counter}) ->
     intervals:range({Name, Counter}, {Name, Counter + 1}).
 
 send(Socket, Ip, Port, Term) ->
-    case random:uniform(20) of
+    case 2 of %% random:uniform(20) of
         1 ->
             ok;
         _ ->
