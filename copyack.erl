@@ -41,8 +41,7 @@ handle_packet(_SenderIp, _SenderPort, {replay, RequestedIndex},
                              available = Available,
                              index = Index,
                              recent_replays = RecentReplays}) ->
-    ToReplay = intervals:difference(intervals:intersection(Index, RequestedIndex),
-                                    RecentReplays),
+    ToReplay = intervals:subtract(intervals:intersection(Index, RequestedIndex), RecentReplays),
     copyinout:dump_set("ToReplay", ToReplay),
     case intervals:is_empty(ToReplay) of
         true ->

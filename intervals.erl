@@ -2,7 +2,7 @@
 
 -export([is_empty/1, empty/0, range/2, is_element/2]).
 -export([leaves/1, sizes/2, low/1, high/1, rough_split/1]).
--export([union/2, intersection/2, difference/2]).
+-export([union/2, intersection/2, subtract/2]).
 
 -export([test/0, test1/0]).
 
@@ -125,11 +125,11 @@ intersection(#node{left = TL1, right = TR1}, T2) ->
         true      -> union(intersection(TL1, T2), intersection(TR1, T2))
     end.
 
-difference(T, empty) ->
+subtract(T, empty) ->
     T;
-difference(empty, _T) ->
+subtract(empty, _T) ->
     empty;
-difference(T1 = #leaf{low = L1, high = H1}, #leaf{low = L2, high = H2}) ->
+subtract(T1 = #leaf{low = L1, high = H1}, #leaf{low = L2, high = H2}) ->
     if
         H1 < L2 -> T1;
         H2 < L1 -> T1;
@@ -141,10 +141,10 @@ difference(T1 = #leaf{low = L1, high = H1}, #leaf{low = L2, high = H2}) ->
                        {LL, RR} -> balance(#node{low = L1, left = LL, right = RR, high = H1})
                    end
     end;
-difference(T1, #node{left = TL2, right = TR2}) ->
-    intersection(difference(T1, TL2), difference(T1, TR2));
-difference(#node{left = TL1, right = TL2}, T2) ->
-    union(difference(TL1, T2), difference(TL2, T2)).
+subtract(T1, #node{left = TL2, right = TR2}) ->
+    intersection(subtract(T1, TL2), subtract(T1, TR2));
+subtract(#node{left = TL1, right = TL2}, T2) ->
+    union(subtract(TL1, T2), subtract(TL2, T2)).
 
 ht(empty) -> 0;
 ht(#leaf{}) -> 1;
@@ -241,25 +241,25 @@ test1() ->
     {leaf, 1, 3} = union(range(1, 2), range(2, 3)),
     empty = intersection(range(1, 2), range(2, 3)),
 
-    X1458 = difference(X1458, empty),
-    empty = difference(empty, X1458),
+    X1458 = subtract(X1458, empty),
+    empty = subtract(empty, X1458),
 
-    X14 = difference(X14, range(5, 10)),
-    X14 = difference(X14, range(-15, -10)),
-    empty = difference(X14, range(1, 10)),
-    empty = difference(X14, range(-15, 4)),
-    empty = difference(X14, range(-15, 10)),
-    X1458 = difference(range(1, 8), range(4, 5)),
-    X14 = difference(range(1, 8), range(4, 10)),
-    X14 = difference(range(0, 4), range(-10, 1)),
+    X14 = subtract(X14, range(5, 10)),
+    X14 = subtract(X14, range(-15, -10)),
+    empty = subtract(X14, range(1, 10)),
+    empty = subtract(X14, range(-15, 4)),
+    empty = subtract(X14, range(-15, 10)),
+    X1458 = subtract(range(1, 8), range(4, 5)),
+    X14 = subtract(range(1, 8), range(4, 10)),
+    X14 = subtract(range(0, 4), range(-10, 1)),
 
-    empty = difference(X14, X14),
-    empty = difference(X1458, X1458),
-    {leaf, 1, 2} = difference(range(1, 3), range(2, 3)),
+    empty = subtract(X14, X14),
+    empty = subtract(X1458, X1458),
+    {leaf, 1, 2} = subtract(range(1, 3), range(2, 3)),
 
     Deepish
         = {node,3,-15, {node,2,-15,{leaf,-15,1},{leaf,4,5},5}, {leaf,8,10}, 10}
-        = difference(range(-15, 10), X1458),
+        = subtract(range(-15, 10), X1458),
     [{depth, 3}, {present, 19}, {ngaps, 2}, {absent, 6}]
         = sizes(Deepish, fun (B, A) -> B - A end),
     [{depth, 0}, {present, 0}, {ngaps, 0}, {absent, 0}]
@@ -270,7 +270,7 @@ test1() ->
     0 = ht(empty),
     1 = ht(range(1,2)),
 
-    {node,2,1,{leaf,1,3},{leaf,6,8},8} = difference(X1458, range(3, 6)),
+    {node,2,1,{leaf,1,3},{leaf,6,8},8} = subtract(X1458, range(3, 6)),
     ok.
 
 testBalancing() ->

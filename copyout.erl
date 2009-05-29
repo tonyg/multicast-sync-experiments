@@ -30,7 +30,7 @@ request_resend(Socket, SenderIp, SenderPort, Unseen) ->
 handle_packet(SenderIp, SenderPort, {seen, SeenIndex},
               State = #state{socket = Socket,
                              index = Index}) ->
-    Unseen = intervals:difference(SeenIndex, Index),
+    Unseen = intervals:subtract(SeenIndex, Index),
     case intervals:is_empty(Unseen) of
         true ->
             ok;
