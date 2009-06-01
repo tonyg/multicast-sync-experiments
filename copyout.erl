@@ -45,14 +45,6 @@ handle_packet(_SenderIp, _SenderPort, {publish, MsgId, Msg},
             State;
         false ->
             %%io:format("Received ~p ~p~n", [MsgId, Msg]),
-            case Msg of
-                stop_profiling ->
-                    fprof:trace(stop),
-                    fprof:profile(),
-                    fprof:analyse([{dest, []}, {cols, 100}]);
-                _ ->
-                    ok
-            end,
             case random:uniform(20) of
                 1 ->
                     State;
@@ -71,7 +63,6 @@ init([]) ->
                                        {multicast_loop, true},
                                        {active, true}]),
     {ok, _TimerRef} = timer:send_interval(?DUMP_INDEX_INTERVAL, dump_index),
-    fprof:trace(start),
     {ok, #state{socket = Socket,
                 index = intervals:empty()}}.
 
