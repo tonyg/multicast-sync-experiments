@@ -1,3 +1,4 @@
 fprof.analysis
 intervals.COVER.html
 *.beam
+timing/*.png

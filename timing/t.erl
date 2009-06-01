@@ -2,10 +2,6 @@
 
 -compile([export_all]).
 
-%-define(SET, gb_sets).
--define(SET, intervals).
-%-define(SET, linear_intervals).
-
 time_to_run(F, CatchInfo) ->
     Start = now(),
     Result = case catch F() of
@@ -120,7 +116,8 @@ randset1(Acc, N, Range) ->
     randset1([{X, X+1} | Acc], N - 1, Range).
 
 with_file(FilenamePartStr, Fun) ->
-    {ok, FH} = file:open(atom_to_list(?SET) ++ "_" ++ FilenamePartStr ++ ".csv", [write]),
+    {ok, FH} =
+        file:open("data/" ++ atom_to_list(?SET) ++ "_" ++ FilenamePartStr ++ ".csv", [write]),
     Fun(FH),
     file:close(FH).
 
