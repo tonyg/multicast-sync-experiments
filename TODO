@@ -9,7 +9,12 @@ If copyack starts after copyin has offered everything, and copyin has
 no RTT estimate, copyin will never retransmit. Need to think up a
 better strategy for retransmissions.
 
+Make copyout ignore seen-set notifications it receives during a
+ computation of a replay-request, by filtering them out of its
+ incoming message queue. (This is complicated by the fact that we're
+ using term-encoded binary rather than matchable terms!)
 
+'
 
 copyack:start_link().
 
