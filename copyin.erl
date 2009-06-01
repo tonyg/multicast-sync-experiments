@@ -13,7 +13,7 @@
 -export([publish/2]).
 
 start_link(Name) ->
-    gen_server:start_link(?MODULE, [Name], []).
+    gen_server2:start_link(?MODULE, [Name], []).
 
 publish(Pid, Msg) ->
     gen_server:cast(Pid, {publish, Msg}).
