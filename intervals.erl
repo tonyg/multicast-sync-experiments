@@ -1,7 +1,7 @@
 -module(intervals).
 
 -export([is_empty/1, empty/0, range/2, is_element/2]).
--export([to_list/1, from_list/1, sizes/2, low/1, high/1]).
+-export([to_list/1, from_list/1, sizes/2, low/1, high/1, partition/2]).
 -export([union/2, intersection/2, subtract/2]).
 
 -export([test/0, test1/0]).

@@ -22,8 +22,13 @@ request_resend(Socket, SenderIp, SenderPort, Unseen) ->
         ok ->
             ok;
         {error, too_big} ->
-            {FewerUnseen, _} = intervals:rough_split(Unseen),
-            io:format("Too big, trying fewer~n"),
+            %% FIXME WARNING: Discards client ID below! Need a better partitioning by client.
+            {_, High} = intervals:high(Unseen),
+            {_, Low} = intervals:low(Unseen),
+            Median = (High + Low) div 2,
+            {FewerUnseen, _} = intervals:partition(Median, Unseen),
+            io:format("Too big, high ~p and low ~p; trying fewer, median ~p~n",
+                      [High, Low, Median]),
             request_resend(Socket, SenderIp, SenderPort, FewerUnseen)
     end.
 
