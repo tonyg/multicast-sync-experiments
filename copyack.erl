@@ -47,7 +47,7 @@ handle_packet(_SenderIp, _SenderPort, {replay, RequestedIndex},
         true ->
             State;
         false ->
-            Ranges = intervals:leaves(ToReplay),
+            Ranges = intervals:to_list(ToReplay),
             replay_all(Socket, Available, Ranges),
             State#state{recent_replays = intervals:union(RecentReplays, ToReplay)}
     end;

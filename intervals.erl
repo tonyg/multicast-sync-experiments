@@ -1,59 +1,70 @@
 -module(intervals).
 
 -export([is_empty/1, empty/0, range/2, is_element/2]).
--export([leaves/1, sizes/2, low/1, high/1, rough_split/1]).
+-export([to_list/1, from_list/1, sizes/2, low/1, high/1]).
 -export([union/2, intersection/2, subtract/2]).
 
 -export([test/0, test1/0]).
 
--record(node, {ht, low, left, right, high}).
--record(leaf, {low, high}).
+%-record(node, {left, low, high, right}).
+%-define(N(A,B,C,D), #node{left = A, low = B, high = C, right = D}).
+
+-define(N(A,B,C,D), {A,B,C,D}).
+
+is_empty(empty) ->
+    true;
+is_empty(_) ->
+    false.
 
 empty() ->
     empty.
 
 range(L, H) when L < H ->
-    #leaf{low = L, high = H};
+    ?N(empty, L, H, empty);
 range(L, H) when L >= H ->
     empty.
 
-is_empty(empty) ->
-    true;
-is_empty(#node{}) ->
-    false;
-is_empty(#leaf{}) ->
-    false.
-
-low(#leaf{low = L}) -> L; 
-low(#node{low = L}) -> L.
-
-high(#leaf{high = H}) -> H;
-high(#node{high = H}) -> H.
-
-rough_split(#node{left = L, right = R}) -> {L, R}.
-
 is_element(_E, empty) ->
     false;
-is_element(E, #node{left = TL, right = TR}) ->
-    P = low(TR),
+is_element(E, ?N(TL, Low, High, TR)) ->
     if
-        E < P ->
-            is_element(E, TL);
-        true ->
-            is_element(E, TR)
-    end;
-is_element(E, #leaf{low = L, high = H}) ->
-    E >= L andalso E < H.
+        E < Low -> is_element(E, TL);
+        E < High -> true;
+        true -> is_element(E, TR)
+    end.
 
-leaves(T) ->
-    lists:flatten(leaves1(T)).
+to_list(T) ->
+    lists:reverse(to_list([], T)).
 
-leaves1(empty) ->
-    [];
-leaves1(#leaf{low = L, high = H}) ->
-    [{L, H}];
-leaves1(#node{left = L, right = R}) ->
-    [leaves1(L) | leaves1(R)].
+to_list(Acc, empty) ->
+    Acc;
+to_list(Acc, ?N(A,Low,High,B)) ->
+    to_list([{Low,High} | to_list(Acc, A)], B).
+
+merge_adjacent(Acc, []) ->
+    lists:reverse(Acc);
+merge_adjacent(Acc, [{L1, M}, {M, H2} | Rest]) ->
+    merge_adjacent(Acc, [{L1, H2} | Rest]);
+merge_adjacent(Acc, [R | Rest]) ->
+    merge_adjacent([R | Acc], Rest).
+
+from_list(Elts) ->
+    Ranges = merge_adjacent([], lists:usort(Elts)),
+    NRanges = length(Ranges),
+    {T, []} = from_list(NRanges, Ranges),
+    T.
+
+from_list(0, Ranges) ->
+    {empty, Ranges};
+from_list(1, [{L, H} | Rest]) ->
+    %% optimisation; special case of Count > 1.
+    {?N(empty, L, H, empty), Rest};
+from_list(Count, Ranges) ->
+    Midpoint = Count div 2,
+    {Left, Remainder0} = from_list(Midpoint, Ranges),
+    [{L, H} | Remainder1] = Remainder0,
+    {Right, Remainder2} = from_list(Count - Midpoint - 1, Remainder1),
+    {?N(Left, L, H, Right), Remainder2}.
 
 sizes(T, F) ->
     {Depth, Present, NGaps, Absent} = sizes1(T, F),
@@ -64,127 +75,138 @@ sizes(T, F) ->
 
 sizes1(empty, _F) ->
     {0, 0, 0, 0};
-sizes1(#leaf{low = L, high = H}, F) ->
-    {1, F(H, L), 0, 0};
-sizes1(#node{left = L, right = R}, F) ->
+sizes1(?N(L, Low, High, R), F) ->
     {LD, LP, LG, LM} = sizes1(L, F),
     {RD, RP, RG, RM} = sizes1(R, F),
-    {max(LD, RD) + 1, LP + RP, LG + RG + 1, LM + RM + F(low(R), high(L))}.
+    {LGaps, LAbsent} = case L of
+                           empty -> {0, 0};
+                           _ -> {1, F(Low, high(L))}
+                       end,
+    {RGaps, RAbsent} = case R of
+                           empty -> {0, 0};
+                           _ -> {1, F(low(R), High)}
+                       end,
+    {max(LD, RD) + 1,
+     LP + RP + F(High, Low),
+     LG + RG + LGaps + RGaps,
+     LM + RM + LAbsent + RAbsent}.
 
-min(A, B) when A < B -> A;
-min(_A, B) -> B.
+low(?N(empty, Low, _, _)) -> Low;
+low(?N(L, _, _, _)) -> low(L).
 
-max(A, B) when A > B -> A;
-max(_A, B) -> B.
+high(?N(_, _, High, empty)) -> High;
+high(?N(_, _, _, R)) -> high(R).
 
 union(empty, T) ->
     T;
 union(T, empty) ->
     T;
-union(T1 = #leaf{low = L1, high = H1}, T2 = #leaf{low = L2, high = H2}) ->
-    if
-        H1 < L2 -> #node{ht = 2, low = L1, left = T1, right = T2, high = H2};
-        H2 < L1 -> #node{ht = 2, low = L2, left = T2, right = T1, high = H1};
-        true    -> #leaf{low = min(L1, L2), high = max(H1, H2)}
-    end;
-union(T1 = #leaf{}, T2 = #node{}) ->
-    union(T2, T1);
-union(#node{left = TL1, right = TR1}, T2) ->
-    L2 = low(T2),
-    H2 = high(T2),
-    LTR1 = low(TR1),
-    HTL1 = high(TL1),
-    if
-        H2 < LTR1 ->
-            M = union(TL1, T2),
-            balance(#node{low = low(M), left = M, right = TR1, high = high(TR1)});
-        HTL1 < L2 ->
-            M = union(T2, TR1),
-            balance(#node{low = low(TL1), left = TL1, right = M, high = high(M)});
-        true ->
-            ML = union(TL1, T2),
-            union(ML, TR1)
-    end.
+union(?N(A,L,H,B), T) ->
+    {TLM, TR} = partition(H, T),
+    {TL, _TM} = partition(L, TLM),
+    mergenode(mergenode(union(A, TL), ?N(empty, L, H, empty)), union(B, TR)).
 
 intersection(empty, _) ->
     empty;
 intersection(_, empty) ->
     empty;
-intersection(#leaf{low = L1, high = H1}, #leaf{low = L2, high = H2}) ->
-    range(max(L1, L2), min(H1, H2));
-intersection(T1 = #leaf{}, T2 = #node{}) ->
-    intersection(T2, T1);
-intersection(#node{left = TL1, right = TR1}, T2) ->
-    L2 = low(T2),
-    H2 = high(T2),
-    LTR1 = low(TR1),
-    HTL1 = high(TL1),
-    if
-        H2 < LTR1 -> intersection(TL1, T2);
-        HTL1 < L2 -> intersection(T2, TR1);
-        true      -> union(intersection(TL1, T2), intersection(TR1, T2))
-    end.
+intersection(?N(A,L,H,B), T) ->
+    {TLM, TR} = partition(H, T),
+    {TL, TM} = partition(L, TLM),
+    mergenode(mergenode(intersection(A, TL), TM), intersection(B, TR)).
 
-subtract(T, empty) ->
-    T;
-subtract(empty, _T) ->
+subtract(A, empty) ->
+    A;
+subtract(empty, _) ->
     empty;
-subtract(T1 = #leaf{low = L1, high = H1}, #leaf{low = L2, high = H2}) ->
+subtract(?N(A,L,H,B), T) ->
+    {TLM, TR} = partition(H, T),
+    {TL, TM} = partition(L, TLM),
+    Mid = midsub(subtract(A, TL), L, TM, H),
+    mergenode(Mid, subtract(B, TR)).
+
+midsub(Leftmost, L, empty, H) ->
     if
-        H1 < L2 -> T1;
-        H2 < L1 -> T1;
-        H1 < H2 -> range(L1, L2);
-        L2 < L1 -> range(H2, H1);
-        true    -> case {range(L1, L2), range(H2, H1)} of
-                       {empty, RR} -> RR;
-                       {LL, empty} -> LL;
-                       {LL, RR} -> balance(#node{low = L1, left = LL, right = RR, high = H1})
-                   end
+        L < H -> mergenode(Leftmost, ?N(empty, L, H, empty));
+        true -> Leftmost
     end;
-subtract(T1, #node{left = TL2, right = TR2}) ->
-    intersection(subtract(T1, TL2), subtract(T1, TR2));
-subtract(#node{left = TL1, right = TL2}, T2) ->
-    union(subtract(TL1, T2), subtract(TL2, T2)).
+midsub(Leftmost, L, ?N(A, ML, MH, B), H) ->
+    NewLeftmost = midsub(Leftmost, L, A, ML),
+    midsub(NewLeftmost, MH, B, H).
 
-ht(empty) -> 0;
-ht(#leaf{}) -> 1;
-ht(#node{ht = H}) -> H.
+mergenode(T, empty) ->
+    T;
+mergenode(empty, T) ->
+    T;
+mergenode(?N(A, AL, M, empty), ?N(empty, M, BH, B)) ->
+    ?N(A, AL, BH, B);
+mergenode(T1, ?N(A,L,H,B)) ->
+    {T1L, empty} = partition(L, T1),
+    ?N(mergenode(T1L, A), L, H, B).
 
-n(L, R) ->
-    #node{ht = max(ht(L), ht(R)) + 1,
-          low = low(L),
-          left = L,
-          right = R,
-          high = high(R)}.
-
-balance(N = #node{left = L, right = R}) ->
-    LH = ht(L),
-    RH = ht(R),
-    RightBias = RH - LH,
+%% Splits input tree into two: one with all elements LT the pivot, the
+%% other with all elements GE the pivot.
+partition(_Pivot, empty) ->
+    {empty, empty};
+partition(Pivot, T = ?N(A, L, H, B)) ->
     if
-        RightBias > 1 ->
-            #node{left = RL, right = RR} = R,
-            Bias2 = ht(RR) - ht(RL),
-            if
-                Bias2 >= 0 -> n(n(L, RL), RR);
-                true -> n(n(L, RL#node.left), n(RL#node.right, RR))
+        H =< Pivot ->
+            case B of
+                empty ->
+                    {T, empty};
+                ?N(B1, BL, BH, B2) ->
+                    if
+                        BH =< Pivot ->
+                            %% right, right
+                            {Small, Big} = partition(Pivot, B2),
+                            {?N(?N(A,L,H,B1),BL,BH,Small), Big};
+                        BL < Pivot ->
+                            %% right, mid
+                            {?N(A,L,H,?N(B1,BL,Pivot,empty)), ?N(empty,Pivot,BH,B2)};
+                        true ->
+                            %% right, left
+                            {Small, Big} = partition(Pivot, B1),
+                            {?N(A,L,H,Small), ?N(Big,BL,BH,B2)}
+                    end
             end;
-        RightBias < -1 ->
-            #node{left = LL, right = LR} = L,
-            Bias2 = ht(LL) - ht(LR),
-            if
-                Bias2 >= 0 -> n(LL, n(LR, R));
-                true -> n(n(LL, LR#node.left), n(LR#node.right, R))
-            end;
+        L < Pivot ->
+            {?N(A,L,Pivot,empty), ?N(empty,Pivot,H,B)};
         true ->
-            N#node{ht = max(LH, RH) + 1}
+            case A of
+                empty ->
+                    {empty, T};
+                ?N(A1, AL, AH, A2) ->
+                    if
+                        AH =< Pivot ->
+                            %% left, right
+                            {Small, Big} = partition(Pivot, A2),
+                            {?N(A1,AL,AH,Small), ?N(Big,L,H,B)};
+                        AL < Pivot ->
+                            %% left, mid
+                            {?N(A1,AL,Pivot,empty), ?N(?N(empty,Pivot,AH,A2),L,H,B)};
+                        true ->
+                            %% left, left
+                            {Small, Big} = partition(Pivot, A1),
+                            {Small, ?N(Big,AL,AH,?N(A2,L,H,B))}
+                    end
+            end
     end.
+
+%% min(A, B) when A < B -> A;
+%% min(_A, B) -> B.
+
+max(A, B) when A > B -> A;
+max(_A, B) -> B.
 
 test() ->
     cover:compile(?MODULE),
     R = ?MODULE:test1(),
     cover:analyse_to_file(?MODULE, [html]),
     R.
+
+asserteq(T1, T2) ->
+    L = to_list(T1),
+    L = to_list(T2).
 
 test1() ->
     empty = empty(),
@@ -200,23 +222,32 @@ test1() ->
 
     X1234 = union(range(1, 2), range(3, 4)),
     X3456 = union(range(3, 4), range(5, 6)),
-    {node,3,1,{leaf,1,2},{node,2,3,{leaf,3,4},{leaf,5,6},6},6} = union(X1234, X3456),
-    {{leaf,1,2},{node,2,3,{leaf,3,4},{leaf,5,6},6}} = rough_split(union(X1234, X3456)),
-    [{1,2},{3,4},{5,6}] = leaves(union(X1234, X3456)),
-    [{1,2}] = leaves(range(1,2)),
-    [] = leaves(empty),
+    ?N(?N(?N(empty,1,2,empty),3,4,empty),5,6,empty) = union(X1234, X3456),
+    [{1,2},{3,4},{5,6}] = to_list(union(X1234, X3456)),
+    [{1,2}] = to_list(range(1,2)),
+    [] = to_list(empty),
 
     false = is_empty(X1234),
 
-    {node,3,1, {leaf,1,10}, {node,2,15,{leaf,15,30},{leaf,40,50},50}, 50} =
+    ?N(?N(?N(empty,1,10,empty),15,30,empty),40,50,empty) =
         union(union(range(1, 10), range(15, 25)),
               union(range(20, 30), range(40, 50))),
 
-    {leaf, 15, 40} = union(range(15, 30), range(30, 40)),
+    ?N(empty,15,40,empty) = union(range(15, 30), range(30, 40)),
 
     X1458 = union(range(1, 4), range(5, 8)),
-    {leaf, 1, 8} = union(X1458, range(3, 6)),
-    {leaf, 1, 8} = union(range(3, 6), X1458),
+    1 = low(X1458),
+    {empty, X1458R} = partition(0, X1458),
+    8 = high(X1458R), %% tricky splay to cover the second clause of high/1.
+    ?N(empty,1,8,empty) = union(X1458, range(3, 6)),
+    ?N(empty,1,8,empty) = union(range(3, 6), X1458),
+
+    {?N(?N(empty,1,2,empty),3,4,?N(empty,5,6,empty)), empty}
+        = partition(6.5, ?N(empty,1,2,?N(empty,3,4,?N(empty,5,6,empty)))),
+    {?N(empty,1,2,?N(empty,3,3.5,empty)), ?N(empty,3.5,4,?N(empty,5,6,empty))}
+        = partition(3.5, ?N(empty,1,2,?N(empty,3,4,?N(empty,5,6,empty)))),
+    {?N(empty,1,2,empty), ?N(empty,3,4,?N(empty,5,6,empty))}
+        = partition(2.5, ?N(empty,1,2,?N(empty,3,4,?N(empty,5,6,empty)))),
 
     false = is_element(2, empty),
     false = is_element(20, empty),
@@ -227,62 +258,55 @@ test1() ->
     X1458 = union(X1458, empty),
     X1458 = union(range(5, 8), range(1, 4)),
 
+    [{1,4},{5,8}] = to_list(X1458),
+    [] = to_list(empty),
+
+    X1458 = from_list(to_list(X1458)),
+    asserteq(X1458, from_list([{1,4},{5,6},{6,7},{7,8},{1,4}])),
+    asserteq(X1458, from_list([{1,4},{1,4},{5,8}])),
+    asserteq(X1458, from_list([{5,8},{1,4},{1,4}])),
+
     X3456 = intersection(X1458, range(3, 6)),
     X3456 = intersection(range(3, 6), X1458),
     X1234 = intersection(X1234, X1458),
 
     X5678 = union(range(5, 6), range(7, 8)),
     empty = intersection(X1234, X5678),
-    X5678 = intersection(X1458, X5678),
+    asserteq(X5678, intersection(X1458, X5678)),
 
     empty = intersection(empty, X1458),
     empty = intersection(X1458, empty),
 
-    {leaf, 1, 3} = union(range(1, 2), range(2, 3)),
+    ?N(empty,1,3,empty) = union(range(1, 2), range(2, 3)),
     empty = intersection(range(1, 2), range(2, 3)),
 
     X1458 = subtract(X1458, empty),
     empty = subtract(empty, X1458),
 
-    X14 = subtract(X14, range(5, 10)),
-    X14 = subtract(X14, range(-15, -10)),
+    asserteq(X14, subtract(X14, range(5, 10))),
+    asserteq(X14, subtract(X14, range(-15, -10))),
     empty = subtract(X14, range(1, 10)),
     empty = subtract(X14, range(-15, 4)),
     empty = subtract(X14, range(-15, 10)),
     X1458 = subtract(range(1, 8), range(4, 5)),
-    X14 = subtract(range(1, 8), range(4, 10)),
-    X14 = subtract(range(0, 4), range(-10, 1)),
+    asserteq(X14, subtract(range(1, 8), range(4, 10))),
+    asserteq(X14, subtract(range(0, 4), range(-10, 1))),
 
     empty = subtract(X14, X14),
     empty = subtract(X1458, X1458),
-    {leaf, 1, 2} = subtract(range(1, 3), range(2, 3)),
+    ?N(empty,1,2,empty) = subtract(range(1, 3), range(2, 3)),
 
     Deepish
-        = {node,3,-15, {node,2,-15,{leaf,-15,1},{leaf,4,5},5}, {leaf,8,10}, 10}
+        = ?N(?N(?N(empty,-15,1,empty),4,5,empty),8,10,empty)
         = subtract(range(-15, 10), X1458),
+    Deepish1
+        = ?N(empty, -15, 1, ?N(empty, 4, 5, ?N(empty, 8, 10, empty))),
     [{depth, 3}, {present, 19}, {ngaps, 2}, {absent, 6}]
         = sizes(Deepish, fun (B, A) -> B - A end),
+    [{depth, 3}, {present, 19}, {ngaps, 2}, {absent, 6}]
+        = sizes(Deepish1, fun (B, A) -> B - A end),
     [{depth, 0}, {present, 0}, {ngaps, 0}, {absent, 0}]
         = sizes(empty, fun (B, A) -> B - A end),
 
-    ok = testBalancing(),
-
-    0 = ht(empty),
-    1 = ht(range(1,2)),
-
-    {node,2,1,{leaf,1,3},{leaf,6,8},8} = subtract(X1458, range(3, 6)),
-    ok.
-
-testBalancing() ->
-    %% Particular arrangement of steps to force coverage of all the branches.
-    %% Hmm how do I get coverage of the zigzig (single) rotations?
-    LR = union(range(3,4), range(5,6)),
-    L = union(range(1,2), LR),
-    R = range(7,8),
-    X = union(L,R),
-    Y = union(range(10,11), range(12,13)),
-    UX = n(n(range(1,2), range(3,4)), n(n(range(5,6), range(7,8)), n(range(10,11), range(12,13)))),
-    UX = union(X, Y),
-    UV = n(n(range(-4,-3),n(range(-2,-1),range(1,2))), n(range(3,4),n(range(5,6),range(7,8)))),
-    UV = union(union(range(-4,-3), range(-2,-1)), X),
+    ?N(?N(empty,1,3,empty),6,8,empty) = subtract(X1458, range(3, 6)),
     ok.
